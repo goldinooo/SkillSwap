@@ -8,7 +8,7 @@
 
 | Person | Packages | Flyway range | Why |
 |---|---|---|---|
-| **Retahri** (hard) | `credit/`, `session/`, `matching/`, `skill/`, `gamification/` | V20–V29 | Concurrency-sensitive credit logic, session state machine, search and matching queries |
+| **Retahri** | `credit/`, `session/`, `matching/`, `skill/`, `gamification/` | V20–V29 | Concurrency-sensitive credit logic, session state machine, search and matching queries |
 | **Risattou** | `common/` (security, exception), `auth/`, `user/`, `publicapi/` | V10–V19 | Security stack: password hashing, JWT, OAuth2, TOTP, API keys, rate limiting |
 | **Nisrine** | `realtime/`, `chat/`, `friend/`, `notification/` | V30–V39 | WebSocket/STOMP, plus the CRUD-heavier social features |
 
