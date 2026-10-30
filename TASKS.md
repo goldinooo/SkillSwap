@@ -14,7 +14,7 @@
 
 Risattou and Nisrine carry roughly equal load. Retahri has fewer packages but the hardest ones.
 
-## Retahri (hard)
+## Retahri (challenging)
 
 1. **Migrations V20 and V21**: skills, teach/learn lists, matches, sessions, ratings, credit ledger, badges. Include the unique index on `(session_id, reason)`.
 2. **`credit/`**: atomic spend with `UPDATE users SET credits = credits - 1 WHERE id = ? AND credits >= 1`. Write the ledger row and the balance change in one transaction. Signup bonus once per account. Add a concurrency test with many parallel requests.
