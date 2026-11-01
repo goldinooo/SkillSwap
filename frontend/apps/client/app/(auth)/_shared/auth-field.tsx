@@ -24,9 +24,15 @@ export default function AuthField({
   const errorId = error ? `${inputId}-error` : undefined
 
   return (
-    <Field data-invalid={error ? true : false}>
+    <Field data-invalid={error ? true : false} className="gap-1">
       <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-      <Input id={inputId} aria-invalid={!!error} {...inputProps} />
+      <Input
+        id={inputId}
+        aria-invalid={!!error}
+        autoComplete="off"
+        autoCorrect="off"
+        {...inputProps}
+      />
       {description && <FieldDescription>{description}</FieldDescription>}
       {error && <FieldError id={errorId}>{error}</FieldError>}
     </Field>

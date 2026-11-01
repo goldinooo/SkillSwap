@@ -1,14 +1,6 @@
 {
   "name": "frontend",
   "version": "0.0.1",
-  "private": true,
-  "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "lint": "turbo lint",
-    "format": "turbo format",
-    "typecheck": "turbo typecheck"
-  },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
@@ -17,12 +9,23 @@
     "turbo": "^2.11.7",
     "typescript": "^5"
   },
-  "packageManager": "bun@1.4.2",
   "engines": {
     "node": ">=20.9.0"
+  },
+  "packageManager": "bun@1.4.2",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "typecheck": "turbo typecheck"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@thesvg/react": "^4.0.0"
+  }
 }
