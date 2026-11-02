@@ -36,7 +36,7 @@ export default function Page() {
         required
       />
 
-      <Button type="submit">Create account</Button>
+      <Button type="submit">Signin</Button>
       <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
         Or continue with
       </FieldSeparator>
