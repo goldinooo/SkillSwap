@@ -25,7 +25,12 @@ export default function AuthField({
 
   return (
     <Field data-invalid={error ? true : false} className="gap-1">
-      <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+      <FieldLabel htmlFor={inputId}>
+        {label}
+        {inputProps.required && (
+          <span className="font-bold text-red-600">*</span>
+        )}
+      </FieldLabel>
       <Input
         id={inputId}
         aria-invalid={!!error}

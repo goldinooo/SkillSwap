@@ -1,6 +1,14 @@
 "use client"
 
 import {
+  BellIcon,
+  CaretUpDownIcon,
+  CreditCardIcon,
+  SealCheckIcon,
+  SignOutIcon,
+  SparkleIcon,
+} from "@phosphor-icons/react"
+import {
   Avatar,
   AvatarFallback,
   AvatarImage,
@@ -20,14 +28,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
-import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Sparkles,
-} from "lucide-react"
 
 export function NavUser({
   user,
@@ -58,7 +58,7 @@ export function NavUser({
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="truncate text-xs">{user.email}</span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4" />
+                <CaretUpDownIcon className="ml-auto size-4" />
               </SidebarMenuButton>
             }
           />
@@ -85,28 +85,28 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <Sparkles />
+                <SparkleIcon />
                 Upgrade to Pro
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <BadgeCheck />
+                <SealCheckIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCard />
+                <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <Bell />
+                <BellIcon />
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOut />
+            <DropdownMenuItem variant="destructive">
+              <SignOutIcon />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

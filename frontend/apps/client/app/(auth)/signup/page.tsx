@@ -1,8 +1,8 @@
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldSeparator } from "@workspace/ui/components/field"
-import AuthField from "../_shared/auth-field"
-import AuthLayout from "../_shared/auth-layout"
-import OauthGroup from "../_shared/oauth-group"
+import AuthField from "../_shared/components/auth-field"
+import AuthLayout from "../_shared/components/auth-layout"
+import OauthGroup from "../_shared/components/oauth-group"
 
 export default function Page() {
   return (

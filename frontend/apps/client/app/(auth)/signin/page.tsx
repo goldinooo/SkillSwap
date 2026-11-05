@@ -1,9 +1,9 @@
 import React from "react"
-import AuthLayout from "../_shared/auth-layout"
-import AuthField from "../_shared/auth-field"
+import AuthLayout from "../_shared/components/auth-layout"
+import AuthField from "../_shared/components/auth-field"
 import { Field, FieldSeparator } from "@workspace/ui/components/field"
 import { Button } from "@workspace/ui/components/button"
-import OauthGroup from "../_shared/oauth-group"
+import OauthGroup from "../_shared/components/oauth-group"
 
 export default function Page() {
   return (

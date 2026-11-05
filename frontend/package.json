@@ -26,6 +26,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@thesvg/react": "^4.0.0"
   }
 }
