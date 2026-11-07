@@ -20,6 +20,7 @@ import {
   isCurrentDashboardPage,
   type DashboardNavItem,
 } from "@/lib/dashboard-navigation"
+import { cn } from "@/lib/utils"
 
 const user = {
   name: "shadcn",
@@ -31,7 +32,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useCurrentPage()
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" className="data-collapsed" {...props}>
       <SidebarHeader className="p-2">
         <AppLogo />
       </SidebarHeader>
@@ -43,16 +44,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             return (
               <SidebarMenuItem
                 key={item.href}
-                className="select-none"
+                className="relative select-none"
                 draggable={false}
               >
+                {active && (
+                  <span className="absolute top-1/2 -left-4 h-8 w-2.5 -translate-y-1/2 rounded-r bg-primary" />
+                )}
                 <SidebarMenuButton
                   size="lg"
                   isActive={active}
                   render={<Link href={item.href} />}
                   className={
                     active
-                      ? "data-active:bg-primary/10 data-active:font-bold data-active:text-primary data-active:hover:bg-primary"
+                      ? cn(
+                          "data-active:bg-primary/10 data-active:hover:bg-primary",
+                          "data-active:font-bold data-active:text-primary"
+                        )
                       : undefined
                   }
                 >
