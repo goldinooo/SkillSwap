@@ -29,13 +29,12 @@ export default function Page() {
         <h1 className="text-3xl font-bold tracking-tight">
           Welcome back, {MOCK_USER.firstName}
         </h1>
-        <p className="text-muted-foreground">
-          {summary(1, pendingRequests)}
-        </p>
+        <p className="text-muted-foreground">{summary(1, pendingRequests)}</p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <NextSessionCard session={MOCK_NEXT_SESSION} />
+        {/* <NextSessionCard session={MOCK_NEXT_SESSION} /> */}
+        <NextSessionCard />
         <AttentionCard items={MOCK_ATTENTION} />
       </div>
 
