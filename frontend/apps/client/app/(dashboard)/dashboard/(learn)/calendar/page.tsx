@@ -1,3 +1,4 @@
+import { Badge } from "@workspace/ui/components/badge"
 import CalendarHeader from "./_components/calendar-header"
 import CalendarProvider from "./_components/calendar-provider"
 import { CalendarSystem } from "./_components/event-calendar"
@@ -11,22 +12,22 @@ export default function CalendarPage() {
           Manage your availability and keep track of your sessions.
         </p>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-        <span className="flex items-center gap-2">
-          <span aria-hidden className="size-2.5 rounded-full bg-(--chart-3)" />
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <Badge variant="outline" className="h-7 gap-1.5 px-2.5">
+          <span aria-hidden className="size-2 rounded-full bg-(--chart-3)" />
           Availability
           <span className="text-muted-foreground">· editable</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span aria-hidden className="size-2.5 rounded-full bg-(--chart-1)" />
+        </Badge>
+        <Badge variant="outline" className="h-7 gap-1.5 px-2.5">
+          <span aria-hidden className="size-2 rounded-full bg-(--chart-1)" />
           Teaching
           <span className="text-muted-foreground">· booked</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span aria-hidden className="size-2.5 rounded-full bg-(--chart-2)" />
+        </Badge>
+        <Badge variant="outline" className="h-7 gap-1.5 px-2.5">
+          <span aria-hidden className="size-2 rounded-full bg-(--chart-2)" />
           Learning
           <span className="text-muted-foreground">· booked</span>
-        </span>
+        </Badge>
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <CalendarProvider className="min-h-0 flex-1 gap-3">

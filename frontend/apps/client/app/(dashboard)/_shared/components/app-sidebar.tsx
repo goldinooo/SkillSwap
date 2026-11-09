@@ -9,7 +9,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@workspace/ui/components/sidebar"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import * as React from "react"
 import AppLogo from "./app-logo"
 import { NavUser } from "./app-sidebar-user"
@@ -32,54 +34,59 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useCurrentPage()
 
   return (
-    <Sidebar collapsible="icon" className="data-collapsed" {...props}>
-      <SidebarHeader className="p-2">
-        <AppLogo />
-      </SidebarHeader>
-      <SidebarContent className="pt-14">
-        <SidebarMenu className="p-2">
-          {dashboardNavigation.map((item: DashboardNavItem) => {
-            const NavIcon = item.icon
-            const active = isCurrentDashboardPage(pathname, item.href)
-            return (
-              <SidebarMenuItem
-                key={item.href}
-                className="relative select-none"
-                draggable={false}
-              >
-                {active && (
-                  <span className="absolute top-1/2 -left-4 h-8 w-2.5 -translate-y-1/2 rounded-r bg-primary" />
-                )}
-                <SidebarMenuButton
-                  size="lg"
-                  isActive={active}
-                  render={<Link href={item.href} />}
-                  className={
-                    active
-                      ? cn(
-                          "data-active:bg-primary/10 data-active:hover:bg-primary",
-                          "data-active:font-bold data-active:text-primary"
-                        )
-                      : undefined
-                  }
+    <Sidebar collapsible="icon" {...props}>
+      <TooltipProvider>
+        <SidebarHeader className="p-2">
+          <AppLogo />
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarMenu className="p-2">
+            {dashboardNavigation.map((item: DashboardNavItem) => {
+              const NavIcon = item.icon
+              const active = isCurrentDashboardPage(pathname, item.href)
+              return (
+                <SidebarMenuItem
+                  key={item.href}
+                  className="relative select-none"
+                  draggable={false}
                 >
-                  {NavIcon && (
-                    <NavIcon
-                      weight={active ? "fill" : "regular"}
-                      className="size-6!"
-                    />
+                  {active && (
+                    <span className="absolute top-1/2 -left-2 h-8 w-1 -translate-y-1/2 rounded-r bg-primary group-data-[collapsible=icon]:hidden" />
                   )}
-                  <span className="text-lg">{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )
-          })}
-        </SidebarMenu>
-      </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} />
-      </SidebarFooter>
-      {/* <SidebarRail /> */}
+                  <SidebarMenuButton
+                    size="lg"
+                    isActive={active}
+                    tooltip={item.label}
+                    render={<Link href={item.href} />}
+                    className={
+                      active
+                        ? cn(
+                            "data-active:bg-primary/10 data-active:hover:bg-primary",
+                            "data-active:font-bold data-active:text-primary"
+                          )
+                        : undefined
+                    }
+                  >
+                    {NavIcon && (
+                      <NavIcon
+                        weight={active ? "fill" : "regular"}
+                        className="size-5! shrink-0"
+                      />
+                    )}
+                    <span className="text-lg group-data-[collapsible=icon]:hidden">
+                      {item.label}
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter>
+          <NavUser user={user} />
+        </SidebarFooter>
+      </TooltipProvider>
+      <SidebarRail />
     </Sidebar>
   )
 }
