@@ -8,7 +8,7 @@
 		<version>4.2.0-M2</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.backend</groupId>
+	<groupId>com.trendenden</groupId>
 	<artifactId>backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
