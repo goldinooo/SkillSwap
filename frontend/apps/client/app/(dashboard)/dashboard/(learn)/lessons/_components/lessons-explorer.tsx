@@ -11,11 +11,18 @@ import {
   type LessonFilter,
   type LessonStatus,
 } from "./lessons-data"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import { PlusIcon } from "@phosphor-icons/react/dist/ssr"
+import Link from "next/link"
 
-const filterToStatus: Record<
-  Exclude<LessonFilter, "All">,
-  LessonStatus
-> = {
+const filterToStatus: Record<Exclude<LessonFilter, "All">, LessonStatus> = {
   Active: "active",
   Drafts: "draft",
   Paused: "paused",
@@ -23,6 +30,10 @@ const filterToStatus: Record<
 
 export function LessonsExplorer({ lessons }: { lessons: Lesson[] }) {
   const [filter, setFilter] = useState<LessonFilter>("All")
+
+  if (lessons.length === 0) {
+    return <NoLessons />
+  }
 
   const visible =
     filter === "All"
@@ -42,7 +53,6 @@ export function LessonsExplorer({ lessons }: { lessons: Lesson[] }) {
                 "h-9 rounded-full px-4",
                 !active && "bg-transparent"
               )}
-              aria-pressed={active}
               onClick={() => setFilter(item)}
             >
               {item}
@@ -57,12 +67,31 @@ export function LessonsExplorer({ lessons }: { lessons: Lesson[] }) {
         </p>
       ) : (
         <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filter === "All" && <CreateLessonCard />}
           {visible.map((lesson) => (
             <LessonCard key={lesson.id} lesson={lesson} />
           ))}
-          {filter === "All" && <CreateLessonCard />}
         </div>
       )}
     </>
+  )
+}
+
+function NoLessons() {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <PlusIcon />
+        </EmptyMedia>
+        <EmptyTitle>Create your first lesson today.</EmptyTitle>
+        <EmptyDescription>No lessons found</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button
+          render={<Link href={"/dashboard/lessons/new"}>Create lesson</Link>}
+        />
+      </EmptyContent>
+    </Empty>
   )
 }

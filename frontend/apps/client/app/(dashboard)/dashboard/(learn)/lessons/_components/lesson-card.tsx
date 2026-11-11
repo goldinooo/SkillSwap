@@ -1,4 +1,3 @@
-import Link from "next/link"
 import {
   CalendarBlankIcon,
   CalendarCheckIcon,
@@ -18,6 +17,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
+import Link from "next/link"
 
 import type { Lesson, LessonStatus } from "./lessons-data"
 
@@ -98,19 +98,26 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
 
 export function CreateLessonCard() {
   return (
-    <Link
-      href="/dashboard/lessons/new"
-      className="group flex min-h-64 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/40 p-8 text-center transition-colors hover:border-primary/50 hover:bg-card"
-    >
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-primary/20 group-hover:text-(--chart-3)">
-        <PlusIcon className="size-5" />
-      </span>
-      <span className="font-heading mt-1 text-lg font-semibold">
-        Create a lesson
-      </span>
-      <span className="max-w-56 text-sm text-muted-foreground">
-        Share a skill and earn points when someone books it.
-      </span>
-    </Link>
+    <Button
+      className="h-full border border-dashed border-border"
+      variant={"ghost"}
+      nativeButton={false}
+      render={
+        <Link
+          href="/dashboard/lessons/new"
+          className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/40 p-8 text-center transition-colors hover:border-primary/50 hover:bg-card"
+        >
+          <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors group-hover:bg-primary/20 group-hover:text-(--chart-3)">
+            <PlusIcon className="size-5" />
+          </span>
+          <span className="mt-1 font-heading text-lg font-semibold">
+            Create a lesson
+          </span>
+          <span className="text-sm wrap-break-word text-muted-foreground">
+            Share a skill and earn points when someone books it.
+          </span>
+        </Link>
+      }
+    />
   )
 }

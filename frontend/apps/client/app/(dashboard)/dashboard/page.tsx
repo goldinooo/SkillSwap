@@ -33,8 +33,8 @@ export default function Page() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* <NextSessionCard session={MOCK_NEXT_SESSION} /> */}
-        <NextSessionCard />
+        <NextSessionCard session={MOCK_NEXT_SESSION} />
+        {/* <NextSessionCard /> */}
         <AttentionCard items={MOCK_ATTENTION} />
       </div>
 

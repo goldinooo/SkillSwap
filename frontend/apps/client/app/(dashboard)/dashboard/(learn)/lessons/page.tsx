@@ -17,14 +17,11 @@ export default function LessonsPage() {
             History.
           </p>
         </div>
-        <Button size="lg" render={<Link href="/dashboard/lessons/new" />}>
-          <PlusIcon className="size-4" />
-          Create lesson
-        </Button>
       </div>
 
-      <WeeklyCapacityCard capacity={MOCK_WEEKLY_CAPACITY} />
+      {/* <WeeklyCapacityCard capacity={MOCK_WEEKLY_CAPACITY} /> */}
 
+      {/* <LessonsExplorer lessons={[]} /> */}
       <LessonsExplorer lessons={MOCK_LESSONS} />
     </div>
   )
