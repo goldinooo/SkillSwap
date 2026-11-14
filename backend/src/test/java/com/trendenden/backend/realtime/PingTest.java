@@ -18,10 +18,12 @@ import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.context.annotation.Import;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestSecurityConfig.class)
+
 class PingTest {
 
     @LocalServerPort
@@ -33,10 +35,12 @@ class PingTest {
         client.setMessageConverter(new StringMessageConverter());
 
         BlockingQueue<String> received = new LinkedBlockingQueue<>();
-
+        StompHeaders connectHeaders = new StompHeaders();
+        connectHeaders.add("Authorization", "Bearer test-user-1");
         StompSession session = client
-                .connectAsync("ws://localhost:" + port + "/ws", new StompSessionHandlerAdapter() {})
-                .get(3, TimeUnit.SECONDS);
+                .connectAsync("ws://localhost:" + port + "/ws", new WebSocketHttpHeaders(),
+                 connectHeaders, new StompSessionHandlerAdapter() {}).get(3, TimeUnit.SECONDS);
+
 
         session.subscribe("/topic/pong", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders h) { return String.class; }
