@@ -97,9 +97,11 @@ Retahri's chain is the longest. Risattou's V10 and `common/` gate almost everyth
 
 These are proposals. Each owner confirms them in a short PR or call before the consumer starts.
 
-- **`CurrentUser` (RS, `common/security`)**: `Long currentUserId()`. R and N call this instead of reading the security context directly.
-- **Token parsing (RS, `auth/`)**: `Optional<AuthenticatedUser> parse(String token)`. N's WebSocket CONNECT handler calls it. N can stub it in tests until RS merges.
-- **Error shape (RS, `common/exception`)**: one `ErrorResponse` class and one base exception. Everyone throws the base exception.
+- **`CurrentUser` (RS, `common/security`)**: **`UUID currentUserId()`** — landed. R and N call this instead of reading the security context directly. The id is `UUID`, not `Long`: the schema uses `uuid` primary keys, so every service signature that carries a user id must use `UUID`.
+- **Token parsing (RS, `common/security/TokenParser`)**: `Optional<AuthenticatedUser> parse(String token)` — landed. The interface lives in `common/security`; `auth/service/TokenService` implements it (step 5). N's WebSocket CONNECT handler calls the interface and can stub it with a lambda until then.
+- **`AuthenticatedUser` (RS, `common/security`)**: `record(UUID id, String username, Role role)` — landed. This is the Spring Security principal, so `@AuthenticationPrincipal AuthenticatedUser me` works in any controller.
+- **`Role` (RS, `common/security`)**: `enum { USER, ADMIN }` — landed. It lives in `common/security`, not `user/entity`, because `common` must not depend on a feature package. `user/entity/User` imports it from there.
+- **Error shape (RS, `common/exception`)**: one `ErrorResponse` record and `ApiException` as the base — landed, with `NotFound`/`Conflict`/`Unauthorized`/`Forbidden`/`BadRequest` subclasses. Everyone throws from `ApiException`; nobody builds a `ResponseEntity` for an error.
 - **Credit operations (R, `credit/`)**: `spend(userId, sessionId)`, `earn(userId, sessionId)`, `refund(userId, sessionId)`. Only R's `session/` calls them.
 - **Session events (R publishes, N and R consume)**: `SessionRequested`, `SessionConfirmed`, `SessionCancelled`, `SessionCompleted`, `SessionRated`, each carrying `sessionId`, `teacherId`, `learnerId`. N's `notification/` listens. R's `gamification/` listens to `SessionCompleted`.
 - **Friend events (N publishes, N consumes)**: `FriendRequested`, `FriendAccepted`. N's `notification/` listens.

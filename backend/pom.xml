@@ -8,7 +8,7 @@
 		<version>4.2.0-M2</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.backend</groupId>
+	<groupId>com.trendenden</groupId>
 	<artifactId>backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
@@ -157,6 +157,26 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!--
+					  Surefire's defaults are *Test, Test*, *Tests and *TestCase, so the
+					  integration tests named *IT were silently skipped: 31 tests ran
+					  instead of the full suite and a green build meant nothing for them.
+					  Added here rather than through failsafe so that one command,
+					  ./mvnw test, runs everything.
+
+					  These require a database: docker compose up -d first.
+					-->
+					<includes>
+						<include>**/*Test.java</include>
+						<include>**/*Tests.java</include>
+						<include>**/*IT.java</include>
+					</includes>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
