@@ -104,9 +104,15 @@ class SecurityRulesIT {
 				.andExpect(status().isUnauthorized());
 	}
 
+	/**
+	 * Both forms of the document, not just the JSON one. "/v3/api-docs/**" does not
+	 * cover "/v3/api-docs.yaml": the wildcard matches child segments, and the .yaml
+	 * form is a sibling path, so it answered 401 until it was listed explicitly.
+	 */
 	@Test
 	void docsAndHealthAreReachable() throws Exception {
 		mvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
+		mvc.perform(get("/v3/api-docs.yaml")).andExpect(status().isOk());
 		mvc.perform(get("/actuator/health")).andExpect(status().isOk());
 	}
 

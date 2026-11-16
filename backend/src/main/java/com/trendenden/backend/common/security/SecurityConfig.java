@@ -89,7 +89,12 @@ public class SecurityConfig {
 						// The signup form checks this before the user has a token.
 						.requestMatchers(HttpMethod.GET, "/api/users/availability").permitAll()
 
-						.requestMatchers("/v3/api-docs/**", "/swagger-ui/**",
+						// "/v3/api-docs/**" does not cover "/v3/api-docs.yaml": the
+						// wildcard matches child segments, and the .yaml form is a
+						// sibling path. Without it listed, the JSON document is public
+						// and the YAML one answers 401.
+						.requestMatchers("/v3/api-docs", "/v3/api-docs/**",
+								"/v3/api-docs.yaml", "/swagger-ui/**",
 								"/swagger-ui.html").permitAll()
 
 						// Liveness only. /actuator/** as a whole would expose env,

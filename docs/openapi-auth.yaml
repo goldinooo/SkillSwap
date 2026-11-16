@@ -1,0 +1,1070 @@
+openapi: 3.1.0
+
+info:
+  title: SkillSwap API — Authentication
+  version: v1
+  description: |
+    Authentication, registration and account security for the SkillSwap backend.
+
+    Schemas and request bodies in this document were taken from the live
+    `/v3/api-docs` that springdoc generates from the running code. The status
+    codes, error catalogue, examples and the OAuth2 endpoints were added by hand:
+    springdoc only ever emits `200` because nothing declares the failure cases,
+    and the OAuth2 routes are handled by a servlet filter, so they do not appear
+    in the generated document at all.
+
+    ## The token model
+
+    Two tokens, because a JWT cannot be revoked: the server verifies its
+    signature and never looks it up, so logging out, changing a password or
+    banning an account has no effect on one already issued.
+
+    | | Access token | Refresh token |
+    |---|---|---|
+    | Sent as | `Authorization: Bearer <token>` | request body |
+    | Lifetime | 15 minutes | 30 days |
+    | Verified by | signature only | database lookup |
+    | Revocable | no | **yes** |
+
+    The access token is kept short because it cannot be withdrawn; revocation
+    lives on the refresh token, which is read from the database on every renewal.
+
+    **Rotation.** Each refresh token is good for exactly one exchange. If an
+    already-spent token is presented again, two copies are in circulation, so
+    every session of that user is revoked and both callers must sign in again.
+    That is reported as `REFRESH_TOKEN_REUSED`.
+
+    ## Sign-in flows
+
+    ```
+    Without 2FA
+      POST /api/auth/login        -> accessToken + refreshToken
+
+    With 2FA
+      POST /api/auth/login        -> twoFactorRequired: true + challengeToken
+      POST /api/auth/2fa          -> accessToken + refreshToken
+
+    Provider (Google / 42)
+      GET  /oauth2/authorization/{provider}
+        -> provider consent screen
+        -> GET /login/oauth2/code/{provider}   (handled by the backend)
+        -> 302 to the frontend with ?refreshToken=...
+      POST /api/auth/refresh      -> accessToken + refreshToken
+    ```
+
+    The `challengeToken` is signed with the same key as an access token but
+    carries an `scp` claim. Token parsing rejects any token that has that claim,
+    so a challenge cannot be used as a bearer token and the second factor cannot
+    be skipped.
+
+    ## Errors
+
+    Every failure uses the same `ErrorResponse` body. Branch on `code`, never on
+    `message`: `code` is the contract, `message` is for developers and may
+    change. The full list of codes is on the `ErrorResponse` schema.
+
+    ## Not covered here
+
+    Skill, class, chat and leaderboard endpoints, and the API-key authenticated
+    Public API under `/api/v1/public` which uses an `X-API-Key` header instead.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Registration
+    description: Creating an account.
+  - name: Authentication
+    description: Exchanging credentials for tokens. No token required.
+  - name: Account
+    description: The signed-in user's own account. Requires an access token.
+  - name: Two-factor
+    description: TOTP enrolment and removal. Requires an access token.
+  - name: OAuth2
+    description: |
+      Provider sign-in. Browser redirects, not JSON APIs — not callable from
+      Swagger UI's "Try it out". Active only when provider credentials are
+      configured; the backend skips the whole OAuth2 chain otherwise.
+
+paths:
+
+  /api/users:
+    post:
+      tags: [Registration]
+      summary: Register with email and password
+      operationId: register
+      security: []
+      description: |
+        `username` and `email` are stored lower-cased, so they are unique
+        case-insensitively: once `risattou` exists, `RiSaTtOu` is taken.
+        `displayName` keeps the capitalisation given, and defaults to the
+        username when omitted.
+
+        The `password` maximum of 72 is not arbitrary. BCrypt hashes only the
+        first 72 bytes and silently ignores the rest, so a longer value would
+        give a false impression of strength.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              minimal:
+                summary: Only the required fields
+                value:
+                  username: risattou
+                  email: risattou@example.com
+                  password: correct-horse-battery
+              withDisplayName:
+                summary: With a display name
+                value:
+                  username: risattou
+                  email: risattou@example.com
+                  password: correct-horse-battery
+                  displayName: Risattou
+      responses:
+        '201':
+          description: Created. `Location` carries the new account's URL.
+          headers:
+            Location:
+              schema: { type: string }
+              example: /api/users/f9324a6b-8bda-4edb-b570-fe6368a9e778
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+              example:
+                id: f9324a6b-8bda-4edb-b570-fe6368a9e778
+                username: risattou
+                displayName: risattou
+                email: risattou@example.com
+                role: USER
+                emailVerified: false
+                twoFactorEnabled: false
+                createdAt: '2026-11-16T22:08:44.426Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          description: |
+            The username or email is already in use.
+
+            `USERNAME_TAKEN` / `EMAIL_TAKEN` come from the service's own check.
+            `CONSTRAINT_VIOLATION` is the race: two registrations can both pass
+            that check, and the unique index stops the second insert.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                usernameTaken:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 409
+                    code: USERNAME_TAKEN
+                    message: That username is already taken.
+                    path: /api/users
+                emailTaken:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 409
+                    code: EMAIL_TAKEN
+                    message: That email is already registered.
+                    path: /api/users
+                race:
+                  summary: Lost a concurrent registration race
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 409
+                    code: CONSTRAINT_VIOLATION
+                    message: The request conflicts with data that already exists.
+                    path: /api/users
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/users/availability:
+    get:
+      tags: [Registration]
+      summary: Check whether a username is free
+      operationId: usernameAvailability
+      security: []
+      description: |
+        For the signup form, before the user has a token. The name is normalised
+        the same way registration normalises it, so `OCCUPIED` and `occupied`
+        give the same answer.
+
+        An answer of 204 is not a reservation: the name can still be taken
+        between this call and the registration.
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema: { type: string }
+          example: risattou
+      responses:
+        '204':
+          description: Free.
+        '409':
+          description: Already taken.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Exchange email and password for tokens, or for a 2FA challenge
+      operationId: login
+      security: []
+      description: |
+        Two possible successes, distinguished by `twoFactorRequired`. The unused
+        half of the body is omitted rather than sent as null.
+
+        All three ways this can fail — unknown email, wrong password, and an
+        account that only ever signed in through a provider and has no password —
+        answer with exactly the same body. Telling them apart would let anyone
+        test an address list against the platform and learn who is registered.
+        The server also spends the same time on each, so the response time does
+        not leak it either.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: risattou@example.com
+              password: correct-horse-battery
+      responses:
+        '200':
+          description: Password accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                completed:
+                  summary: Signed in (no 2FA on the account)
+                  value:
+                    twoFactorRequired: false
+                    accessToken: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmOTMyNGE2Yi0...
+                    refreshToken: 4YvK2pR8nQ7sT1wX9zB3cD5fG6hJ0kL2mN4pQ6rS8tU
+                    accessTokenExpiresAt: '2026-11-16T22:23:44.426Z'
+                twoFactorRequired:
+                  summary: 2FA is enabled — no session issued yet
+                  value:
+                    twoFactorRequired: true
+                    challengeToken: eyJhbGciOiJIUzI1NiJ9.eyJzY3AiOiIyZmEiLCJzdWIi...
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: Credentials rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 401
+                code: INVALID_CREDENTIALS
+                message: Email or password is incorrect.
+                path: /api/auth/login
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/auth/2fa:
+    post:
+      tags: [Authentication]
+      summary: Finish a login that required two-factor authentication
+      operationId: twoFactorLogin
+      security: []
+      description: |
+        Send the `challengeToken` from the login response together with the
+        current six digits from the authenticator app.
+
+        Codes from one 30-second step either side of now are accepted, because a
+        phone clock a few seconds out, or a user typing as the code rolls over,
+        would otherwise be locked out.
+
+        The challenge expires after five minutes; after that, log in again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwoFactorLoginRequest'
+            example:
+              challengeToken: eyJhbGciOiJIUzI1NiJ9.eyJzY3AiOiIyZmEiLCJzdWIi...
+              code: '492130'
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                twoFactorRequired: false
+                accessToken: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmOTMyNGE2Yi0...
+                refreshToken: 4YvK2pR8nQ7sT1wX9zB3cD5fG6hJ0kL2mN4pQ6rS8tU
+                accessTokenExpiresAt: '2026-11-16T22:23:44.426Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: The challenge or the code was rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidChallenge:
+                  summary: Challenge missing, malformed or expired
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: INVALID_CHALLENGE
+                    message: That two-factor challenge is not valid or has expired.
+                    path: /api/auth/2fa
+                invalidCode:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: INVALID_TOTP_CODE
+                    message: That code is not valid.
+                    path: /api/auth/2fa
+                notEnabled:
+                  summary: 2FA was switched off while the challenge was outstanding
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: TWO_FACTOR_NOT_ENABLED
+                    message: Two-factor authentication is not enabled for this account.
+                    path: /api/auth/2fa
+
+  /api/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Exchange a refresh token for a new token pair
+      operationId: refresh
+      security: []
+      description: |
+        Returns a new access token **and a new refresh token**. The one sent is
+        retired, so store the replacement: sending the old one again is treated
+        as theft.
+
+        This is also the second half of a provider sign-in: the backend redirects
+        to the frontend with a `refreshToken` query parameter, and the frontend
+        spends it here. Rotation means the value left in browser history is
+        already dead by then.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refreshToken: 4YvK2pR8nQ7sT1wX9zB3cD5fG6hJ0kL2mN4pQ6rS8tU
+      responses:
+        '200':
+          description: New pair issued; the submitted token is now revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                twoFactorRequired: false
+                accessToken: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmOTMyNGE2Yi0...
+                refreshToken: 9pQ2rS4tU6vW8xY0zA1bC3dE5fG7hI9jK1lM3nO5pQ7
+                accessTokenExpiresAt: '2026-11-16T22:38:44.426Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: |
+            The token was rejected. `REFRESH_TOKEN_REUSED` means every session of
+            that account has just been revoked, including the caller's — the user
+            has to sign in with their password again.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: INVALID_REFRESH_TOKEN
+                    message: That refresh token is not valid.
+                    path: /api/auth/refresh
+                expired:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: REFRESH_TOKEN_EXPIRED
+                    message: That refresh token has expired.
+                    path: /api/auth/refresh
+                reused:
+                  summary: Replay detected — all sessions revoked
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 401
+                    code: REFRESH_TOKEN_REUSED
+                    message: That refresh token was already used. All sessions have been ended.
+                    path: /api/auth/refresh
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke a refresh token
+      operationId: logout
+      security: []
+      description: |
+        Revokes the refresh token so it can no longer mint access tokens.
+
+        Idempotent: an unknown or already-revoked token still answers 204, since
+        the caller's goal is reached either way.
+
+        The access token itself cannot be revoked — that is what makes its
+        15-minute lifetime the real limit. The client should discard it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refreshToken: 4YvK2pR8nQ7sT1wX9zB3cD5fG6hJ0kL2mN4pQ6rS8tU
+      responses:
+        '204':
+          description: Revoked, or there was nothing to revoke.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /api/users/me:
+    get:
+      tags: [Account]
+      summary: The signed-in user's own account
+      operationId: me
+      description: |
+        The full view, including the email. Another user's profile is read
+        through `GET /api/users/{id}`, which answers with a narrower projection
+        that carries neither the email nor the role.
+
+        `passwordHash` and `twoFactorSecret` appear in no response at all.
+      responses:
+        '200':
+          description: OK.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+    patch:
+      tags: [Account]
+      summary: Update the signed-in user's profile
+      operationId: updateMe
+      description: |
+        A full replacement of the editable fields: an omitted or null field is
+        cleared. `displayName` is the exception — it cannot be removed, so null
+        leaves it unchanged.
+
+        `timezone` is checked against the JDK's zone database rather than a
+        pattern, so `Africa/Casablanka` is rejected here instead of failing
+        later when a time is rendered with it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              displayName: Risattou
+              firstName: Rida
+              bio: Backend security. Teaching Spring, learning Rust.
+              timezone: Africa/Casablanca
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation failed, or the time zone is not a known zone id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 400
+                    code: VALIDATION_FAILED
+                    message: Request validation failed.
+                    path: /api/users/me
+                    fieldErrors:
+                      - field: bio
+                        message: size must be between 0 and 2000
+                timezone:
+                  value:
+                    timestamp: '2026-11-16T22:08:44.426Z'
+                    status: 400
+                    code: INVALID_TIMEZONE
+                    message: Not a known IANA time zone id.
+                    path: /api/users/me
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /api/account/2fa/enroll:
+    post:
+      tags: [Two-factor]
+      summary: Start 2FA enrolment and get a secret plus otpauth URI
+      operationId: enrollTwoFactor
+      description: |
+        Enrolment is two calls. This one hands out a secret and stores it, but
+        leaves two-factor authentication **off**. Switching it on here would lock
+        out anyone whose QR scan silently failed: the next login would demand a
+        code they have no way to generate.
+
+        Render `otpAuthUri` as a QR code. `secret` is the same value in Base32,
+        for users who cannot scan and type it instead. The server deliberately
+        does not produce the QR image: the secret would then sit in browser and
+        CDN image caches.
+
+        Nothing is committed until `POST /api/account/2fa/confirm` succeeds, so
+        an abandoned enrolment leaves the account exactly as it was.
+      responses:
+        '200':
+          description: Secret issued and staged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpEnrollResponse'
+              example:
+                secret: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+                otpAuthUri: otpauth://totp/SkillSwap:risattou%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=SkillSwap&algorithm=SHA1&digits=6&period=30
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          description: Already enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 409
+                code: TWO_FACTOR_ALREADY_ENABLED
+                message: Two-factor authentication is already enabled.
+                path: /api/account/2fa/enroll
+
+  /api/account/2fa/confirm:
+    post:
+      tags: [Two-factor]
+      summary: Confirm enrolment with a code and switch 2FA on
+      operationId: confirmTwoFactor
+      description: |
+        Echo back the `secret` from the enrol call along with a code generated
+        from it. The code proves the authenticator app really holds the secret.
+
+        On success, every existing session of the account is revoked. Those
+        sessions were established without a second factor, so leaving them alive
+        would mean enabling 2FA protected only future logins — a session stolen
+        beforehand would keep working.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpConfirmRequest'
+            example:
+              secret: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+              code: '492130'
+      responses:
+        '204':
+          description: Enabled. All other sessions were revoked; sign in again.
+        '400':
+          description: The code does not match the secret, or the body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 400
+                code: INVALID_TOTP_CODE
+                message: That code does not match the secret.
+                path: /api/account/2fa/confirm
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          description: Already enabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/account/2fa:
+    delete:
+      tags: [Two-factor]
+      summary: Turn 2FA off, re-confirming the password
+      operationId: disableTwoFactor
+      description: |
+        The password is required in addition to the access token. If a token were
+        stolen, removing the second factor would otherwise be the attacker's
+        first and easiest move.
+
+        An account that signs in only through a provider has no password and
+        cannot use this endpoint.
+
+        On success, all sessions are revoked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpDisableRequest'
+            example:
+              password: correct-horse-battery
+      responses:
+        '204':
+          description: Disabled; the stored secret was cleared and sessions revoked.
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          description: |
+            No valid access token (`UNAUTHENTICATED`), or the password did not
+            match (`INVALID_CREDENTIALS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 401
+                code: INVALID_CREDENTIALS
+                message: Password is incorrect.
+                path: /api/account/2fa
+
+  /oauth2/authorization/{provider}:
+    get:
+      tags: [OAuth2]
+      summary: Start a provider sign-in
+      operationId: oauth2Authorize
+      security: []
+      description: |
+        Send the browser here; do not fetch it. Responds with a redirect to the
+        provider's consent screen.
+
+        Not part of the generated document: Spring Security's OAuth2 filter
+        handles this route, so there is no controller for springdoc to read.
+
+        Active only when that provider's client id and secret are configured. The
+        backend skips its whole OAuth2 chain otherwise, and this path then
+        answers 401 like any other unmapped protected path.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, fortytwo]
+          description: |
+            Matches the registration id in configuration. The 42 provider is
+            `fortytwo`, not `42`: the stored value has to match a Java enum
+            constant, and those cannot begin with a digit.
+      responses:
+        '302':
+          description: Redirect to the provider.
+          headers:
+            Location:
+              schema: { type: string }
+              example: https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=...
+        '401':
+          description: That provider is not configured on this deployment.
+
+  /login/oauth2/code/{provider}:
+    get:
+      tags: [OAuth2]
+      summary: Provider callback (called by the provider, not by clients)
+      operationId: oauth2Callback
+      security: []
+      description: |
+        The redirect URI registered with the provider. The backend resolves the
+        identity, links or creates the account, and redirects to the frontend
+        with a refresh token in the query string.
+
+        Three outcomes when resolving the identity: the provider identity is
+        already linked, so that account is used; the verified email matches an
+        existing account, so the provider is linked to it — which is what stops a
+        password user who later clicks "Sign in with Google" from getting a
+        second, empty account; or neither, so an account is created with a
+        username derived from the email.
+
+        Only a refresh token is passed, never an access token. The URL ends up in
+        browser history and in the referrer, and rotation means the first
+        `POST /api/auth/refresh` spends and retires that value immediately.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, fortytwo]
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+          description: Authorisation code issued by the provider.
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+          description: CSRF value Spring Security generated and now verifies.
+      responses:
+        '302':
+          description: Redirect to the frontend callback, carrying a refresh token.
+          headers:
+            Location:
+              schema: { type: string }
+              example: http://localhost:3000/auth/callback?refreshToken=4YvK2pR8nQ7sT1wX9zB3cD5fG6hJ0kL
+        '400':
+          description: |
+            The provider returned no usable id or email. Both can be configured
+            to withhold the address, and without it there is no safe way to
+            decide whether this is a new account or an existing one, so the
+            sign-in is refused rather than guessed.
+        '401':
+          description: The authorisation code or state failed verification.
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The access token from a login or refresh response.
+
+        In Swagger UI, paste only the token into Authorize — the `Bearer ` prefix
+        is added for you.
+
+        A 2FA `challengeToken` will not work here. It is signed with the same key
+        but carries an `scp` claim, and token parsing rejects any token that has
+        one, so the second factor cannot be bypassed.
+
+  responses:
+
+    Unauthenticated:
+      description: |
+        No access token, or one that is missing, malformed, expired, signed with
+        another key, or carries an `scp` claim.
+
+        Produced by the security filter chain rather than by a controller, since
+        those filters run before request handling — but the body is the same
+        `ErrorResponse` as everything else.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: '2026-11-16T22:08:44.426Z'
+            status: 401
+            code: UNAUTHENTICATED
+            message: Authentication is required.
+            path: /api/users/me
+
+    ValidationFailed:
+      description: |
+        The body failed its constraints, or was not valid JSON.
+
+        `VALIDATION_FAILED` reports every bad field at once in `fieldErrors`,
+        rather than one per attempt. `MALFORMED_REQUEST` carries no detail on
+        purpose: the parser's own message quotes the submitted bytes and names
+        internal classes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation:
+              value:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 400
+                code: VALIDATION_FAILED
+                message: Request validation failed.
+                path: /api/users
+                fieldErrors:
+                  - field: username
+                    message: size must be between 3 and 50
+                  - field: email
+                    message: must be a well-formed email address
+                  - field: password
+                    message: size must be between 8 and 72
+            malformed:
+              value:
+                timestamp: '2026-11-16T22:08:44.426Z'
+                status: 400
+                code: MALFORMED_REQUEST
+                message: Request body is missing or not valid JSON.
+                path: /api/users
+
+    InternalError:
+      description: |
+        Unexpected failure. The message is always generic and the stack trace is
+        logged, never sent: class names, file paths, library versions and SQL are
+        all information an attacker can use.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            timestamp: '2026-11-16T22:08:44.426Z'
+            status: 500
+            code: INTERNAL_ERROR
+            message: An unexpected error occurred.
+            path: /api/users
+
+  schemas:
+
+    ErrorResponse:
+      type: object
+      description: |
+        The single error body the backend returns, for every failure.
+
+        Branch on `code`. `message` is for developers and logs and is not a
+        contract; it is also never translated, which is why the frontend keys its
+        own localised text off `code`.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: When the failure was produced, in UTC.
+        status:
+          type: integer
+          description: Repeats the HTTP status, for clients that only keep the body.
+          example: 401
+        code:
+          type: string
+          description: |
+            Machine-readable and stable. Known values:
+
+            **Registration** `USERNAME_TAKEN` · `EMAIL_TAKEN`
+
+            **Sign-in** `INVALID_CREDENTIALS` · `INVALID_CHALLENGE` ·
+            `INVALID_TOTP_CODE` · `TWO_FACTOR_NOT_ENABLED`
+
+            **Refresh** `INVALID_REFRESH_TOKEN` · `REFRESH_TOKEN_EXPIRED` ·
+            `REFRESH_TOKEN_REUSED`
+
+            **Access** `UNAUTHENTICATED` · `FORBIDDEN`
+
+            **2FA management** `TWO_FACTOR_ALREADY_ENABLED`
+
+            **Profile** `INVALID_TIMEZONE` · `USER_NOT_FOUND`
+
+            **Generic** `VALIDATION_FAILED` · `MALFORMED_REQUEST` ·
+            `INVALID_PARAMETER` · `CONSTRAINT_VIOLATION` · `NOT_FOUND` ·
+            `INTERNAL_ERROR`
+          example: INVALID_CREDENTIALS
+        message:
+          type: string
+          description: Human-readable. Do not parse.
+        path:
+          type: string
+          description: Request path, without the query string.
+          example: /api/auth/login
+        fieldErrors:
+          type: array
+          description: Present only on validation failures; omitted otherwise.
+          items:
+            $ref: '#/components/schemas/FieldError'
+      required: [timestamp, status, code, message, path]
+
+    FieldError:
+      type: object
+      description: One invalid field.
+      properties:
+        field:
+          type: string
+          example: email
+        message:
+          type: string
+          example: must be a well-formed email address
+
+    RegisterRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: ^[A-Za-z0-9._-]+$
+          description: |
+            Stored lower-cased. Upper case is accepted here and normalised; it is
+            the stored value that must be lowercase, not what was typed.
+        email:
+          type: string
+          format: email
+          minLength: 0
+          maxLength: 255
+          description: Stored lower-cased, so uniqueness is case-insensitive.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: 72 is BCrypt's limit; beyond it, extra characters are ignored.
+        displayName:
+          type: string
+          minLength: 0
+          maxLength: 255
+          description: Optional. Defaults to the username, and keeps its capitalisation.
+      required: [username, email, password]
+
+    UserResponse:
+      type: object
+      description: |
+        The account owner's own view. Never carries `passwordHash` or
+        `twoFactorSecret`.
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        email: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        bio: { type: string }
+        avatarUrl: { type: string }
+        timezone: { type: string }
+        role:
+          type: string
+          enum: [USER, ADMIN]
+        emailVerified:
+          type: boolean
+          description: True for provider sign-ups, since the provider verified it.
+        twoFactorEnabled: { type: boolean }
+        lastSeen: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    UpdateProfileRequest:
+      type: object
+      description: Full replacement; an omitted field is cleared.
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Cannot be cleared. Null leaves it unchanged.
+        firstName: { type: string, minLength: 0, maxLength: 50 }
+        lastName: { type: string, minLength: 0, maxLength: 50 }
+        bio: { type: string, minLength: 0, maxLength: 2000 }
+        avatarUrl: { type: string, minLength: 0, maxLength: 255 }
+        timezone:
+          type: string
+          minLength: 0
+          maxLength: 50
+          description: IANA zone id, checked against the JDK's zone database.
+          example: Africa/Casablanca
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          minLength: 1
+          description: Matched case-insensitively.
+        password:
+          type: string
+          minLength: 1
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      description: |
+        Returned by login, 2FA completion and refresh. Fields that do not apply
+        are omitted rather than null, so a 2FA challenge carries no tokens and a
+        completed login carries no challenge.
+      properties:
+        twoFactorRequired:
+          type: boolean
+          description: When true, the only other field is `challengeToken`.
+        challengeToken:
+          type: string
+          description: |
+            Short-lived (5 minutes) and good only for `POST /api/auth/2fa`. Not
+            usable as a bearer token.
+        accessToken:
+          type: string
+          description: "Send as `Authorization: Bearer <token>`. Lives 15 minutes."
+        refreshToken:
+          type: string
+          description: |
+            Store it. Single-use: the next refresh returns a replacement and
+            retires this one.
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: Lets a client refresh ahead of time instead of after a 401.
+      required: [twoFactorRequired]
+
+    TwoFactorLoginRequest:
+      type: object
+      properties:
+        challengeToken:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+          description: Six digits. One 30-second step either side of now is accepted.
+      required: [challengeToken, code]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+      required: [refreshToken]
+
+    TotpEnrollResponse:
+      type: object
+      description: Returned once, when enrolment starts.
+      properties:
+        secret:
+          type: string
+          description: Base32, for manual entry when a QR code cannot be scanned.
+        otpAuthUri:
+          type: string
+          description: |
+            Render as a QR code on the client. Carries the algorithm, digit count
+            and period the authenticator app needs.
+
+    TotpConfirmRequest:
+      type: object
+      properties:
+        secret:
+          type: string
+          minLength: 1
+          description: The value returned by the enrol call.
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required: [secret, code]
+
+    TotpDisableRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 1
+          description: Re-confirmed so a stolen access token cannot remove 2FA.
+      required: [password]
+
+security:
+  - bearerAuth: []
