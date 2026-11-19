@@ -3,8 +3,8 @@
 
 CREATE TABLE friendships (
     id            BIGSERIAL   PRIMARY KEY,
-    requester_id  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    addressee_id  BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    requester_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    addressee_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status        VARCHAR(20) NOT NULL DEFAULT 'PENDING'
                   CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED')),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -20,8 +20,8 @@ CREATE INDEX idx_friendships_addressee ON friendships (addressee_id, status);
 
 CREATE TABLE conversations (
     id          BIGSERIAL   PRIMARY KEY,
-    user_a_id   BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    user_b_id   BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_a_id   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_b_id   UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_a_id, user_b_id),
     CHECK (user_a_id < user_b_id)
@@ -32,8 +32,8 @@ CREATE INDEX idx_conversations_user_b ON conversations (user_b_id);
 
 CREATE TABLE messages (
     id               BIGSERIAL   PRIMARY KEY,
-    conversation_id  BIGINT      NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    sender_id        BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    conversation_id  BIGSERIAL   NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content          TEXT        NOT NULL CHECK (length(content) BETWEEN 1 AND 2000),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     read_at          TIMESTAMPTZ
@@ -42,7 +42,7 @@ CREATE INDEX idx_messages_conversation ON messages (conversation_id, created_at)
 
 CREATE TABLE notifications (
     id          BIGSERIAL   PRIMARY KEY,
-    user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type        VARCHAR(40) NOT NULL,
     payload     JSONB,
     read_at     TIMESTAMPTZ,
