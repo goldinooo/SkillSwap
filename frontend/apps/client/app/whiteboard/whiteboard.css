@@ -1,0 +1,3 @@
+html:has(.excalidraw) {
+  font-size: 100%;
+}
