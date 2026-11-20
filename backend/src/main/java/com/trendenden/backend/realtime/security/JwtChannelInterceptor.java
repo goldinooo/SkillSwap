@@ -33,11 +33,10 @@ public class JwtChannelInterceptor implements ChannelInterceptor{
         if(header == null || !header.startsWith("Bearer ")){
             throw new MessageDeliveryException("Missing or invalid Authorization header");
         }
-        // remove Bearer
+
         String token = header.substring(7);
         // token and tokenSevice checking
         AuthenticatedUser user = tokenService.parse(token).orElseThrow(() -> new MessageDeliveryException("Invalid token"));
-        // user and his id
         String userId = String.valueOf(user.id());
         accessor.setUser(()-> userId);
 

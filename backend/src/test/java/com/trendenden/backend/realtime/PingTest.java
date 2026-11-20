@@ -37,8 +37,7 @@ class PingTest {
         BlockingQueue<String> received = new LinkedBlockingQueue<>();
         StompHeaders connectHeaders = new StompHeaders();
         connectHeaders.add("Authorization", "Bearer test-user-1");
-        StompSession session = client
-                .connectAsync("ws://localhost:" + port + "/ws", new WebSocketHttpHeaders(),
+        StompSession session = client.connectAsync("ws://localhost:" + port + "/ws", new WebSocketHttpHeaders(),
                  connectHeaders, new StompSessionHandlerAdapter() {}).get(3, TimeUnit.SECONDS);
 
 
