@@ -31,7 +31,7 @@ CREATE INDEX idx_conversations_user_b ON conversations (user_b_id);
 
 CREATE TABLE messages (
     id               BIGSERIAL   PRIMARY KEY,
-    conversation_id  BIGSERIAL   NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    conversation_id  BIGINT      NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     sender_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content          TEXT        NOT NULL CHECK (length(content) BETWEEN 1 AND 2000),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
