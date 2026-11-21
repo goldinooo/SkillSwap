@@ -1,4 +1,3 @@
--- V30: friends, chat, notifications (Backend 3 - Nisrine)
 -- Needs V10 (users table) to run first.
 
 CREATE TABLE friendships (
