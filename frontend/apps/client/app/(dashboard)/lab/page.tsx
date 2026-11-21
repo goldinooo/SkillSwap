@@ -1,5 +1,5 @@
-import React from "react"
-
 export default function Page() {
-  return <div>The collaborative workspace</div>
+  return (
+    <div className="grid h-full w-full place-items-center">Canvas View</div>
+  )
 }
