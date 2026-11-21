@@ -1,21 +1,5 @@
 -- Needs V10 (users table) to run first.
 
-CREATE TABLE friendships (
-    id            BIGSERIAL   PRIMARY KEY,
-    requester_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    addressee_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status        VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-                  CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED')),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (requester_id <> addressee_id)
-);
-
--- One row per pair, in either direction (A->B and B->A cannot both exist)
-CREATE UNIQUE INDEX uq_friendships_pair
-    ON friendships (LEAST(requester_id, addressee_id), GREATEST(requester_id, addressee_id));
-CREATE INDEX idx_friendships_requester ON friendships (requester_id, status);
-CREATE INDEX idx_friendships_addressee ON friendships (addressee_id, status);
 
 CREATE TABLE conversations (
     id          BIGSERIAL   PRIMARY KEY,
