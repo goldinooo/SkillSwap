@@ -4,7 +4,7 @@ import { useCurrentPage } from "@/hooks/use-current-page"
 import { Button } from "@workspace/ui/components/button"
 import { Badge } from "@workspace/ui/components/badge"
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
-import { Bell } from "lucide-react"
+import { Bell } from "@phosphor-icons/react"
 
 export function DashboardHeader() {
   const { title } = useCurrentPage()

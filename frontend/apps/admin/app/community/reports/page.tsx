@@ -1,0 +1,6 @@
+import { AdminPageLayout } from "@/components/admin-page-layout"
+import { AdminResourcePage } from "@/components/admin-resource-page"
+
+export default function ReportsPage() {
+  return <AdminPageLayout><AdminResourcePage eyebrow="Trust & Safety" title="Reports" description="Investigate reported users, messages, reviews, exchange disputes, and no-show complaints." columns={[{ label: "Report", key: "report" }, { label: "Category", key: "category" }, { label: "Reported entity", key: "entity" }, { label: "Status", key: "status" }, { label: "Assigned to", key: "assignee" }, { label: "Created", key: "created" }]} filters={[{ label: "Report status", value: "all", options: [{ label: "All statuses", value: "all" }, { label: "Pending", value: "pending" }, { label: "Under review", value: "review" }, { label: "Resolved", value: "resolved" }, { label: "Dismissed", value: "dismissed" }] }, { label: "Category", value: "all", options: [{ label: "All categories", value: "all" }, { label: "Harassment", value: "harassment" }, { label: "Fake account", value: "fake-account" }, { label: "Exchange dispute", value: "dispute" }, { label: "Review abuse", value: "review-abuse" }] }]} emptyTitle="No reports available" emptyDescription="Moderation reports and investigation history will appear when a reports endpoint is available." /></AdminPageLayout>
+}

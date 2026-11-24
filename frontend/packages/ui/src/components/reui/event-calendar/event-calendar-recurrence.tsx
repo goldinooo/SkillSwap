@@ -133,6 +133,7 @@ function parseRRuleDate(value: string, timeZone?: string): Date {
   )
   if (!match) throw new EventCalendarRecurrenceError(`UNTIL=${value}`)
   const [, y, m, d, hh = "23", mm = "59", ss = "59", z] = match
+  if (!y || !m || !d) throw new EventCalendarRecurrenceError(`UNTIL=${value}`)
   // Z-less values (including date-only ones, which mean end of that day
   // inclusive) are wall time in the display zone, not the machine zone.
   const date = z
@@ -452,9 +453,9 @@ function expandRecurrence<TData>(
     }
     const year = addYears(zonedStart, period * interval).getFullYear()
     const month =
-      (edge === "first"
+      ((edge === "first"
         ? yearlyMonths[0]
-        : yearlyMonths[yearlyMonths.length - 1]) - 1
+        : yearlyMonths[yearlyMonths.length - 1]) ?? 1) - 1
     return zonedDate(
       year,
       month,

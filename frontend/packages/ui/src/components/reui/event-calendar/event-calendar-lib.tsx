@@ -413,11 +413,13 @@ function packWeekRowLanes<TData>(
   )
 
   const lanes: boolean[][] = []
+  let occupiedRow: boolean[] | undefined
   for (const bar of rowBars) {
     let lane = 0
     for (;;) {
       lanes[lane] ??= new Array(7).fill(false)
-      const row = lanes[lane]
+      const row = lanes[lane]!
+      lanes[lane] = row
       let free = true
       for (let c = bar.colStart; c < bar.colStart + bar.colSpan; c++) {
         if (row[c]) {
@@ -428,8 +430,9 @@ function packWeekRowLanes<TData>(
       if (free) break
       lane++
     }
+    occupiedRow = lanes[lane]
     for (let c = bar.colStart; c < bar.colStart + bar.colSpan; c++) {
-      lanes[lane][c] = true
+      occupiedRow![c] = true
     }
     bar.lane = lane
   }

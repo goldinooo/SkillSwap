@@ -341,11 +341,12 @@ function EventCalendarMonthWeek({
 }) {
   const settings = useEventCalendarSettings()
   const viewConfig = useEventCalendarViewConfig()
-  const { bars, rowStart } = useEventCalendarWeek(week[0])
+  const firstWeekDay = week[0] ?? new Date()
+  const { bars, rowStart } = useEventCalendarWeek(firstWeekDay)
   const colOffset = showWeekNumber ? 1 : 0
   const dayMs = 86400000
   const rowStartMs = zonedStartOfDay(
-    rowStart ?? week[0],
+    rowStart ?? firstWeekDay,
     settings.timeZone
   ).getTime()
   // Day offsets from the TRUE row start (0-6) for each visible column, so a
@@ -380,7 +381,7 @@ function EventCalendarMonthWeek({
     (_, col) =>
       new Set(
         bars
-          .filter((b) => (b.lane ?? 0) >= cap && covers(b, offsets[col]))
+          .filter((b) => (b.lane ?? 0) >= cap && covers(b, offsets[col] ?? 0))
           .map((b) => b.occurrence.key)
       )
   )
@@ -494,7 +495,7 @@ function EventCalendarMonthWeek({
           )}
         >
           {settings.i18n.labels.week(
-            getWeek(toZoned(week[0], settings.timeZone), {
+            getWeek(toZoned(firstWeekDay, settings.timeZone), {
               // locale supplies firstWeekContainsDate, so a de/ISO calendar
               // numbers the year-boundary weeks its own way instead of falling
               // back to US numbering; weekStartsOn stays explicit so the number
@@ -516,10 +517,10 @@ function EventCalendarMonthWeek({
           // lane so timed events always sit below every bar in their own cell.
           reservedLanes={visibleBars.reduce(
             (max, b) =>
-              covers(b, offsets[col]) ? Math.max(max, (b.lane ?? 0) + 1) : max,
+              covers(b, offsets[col] ?? 0) ? Math.max(max, (b.lane ?? 0) + 1) : max,
             0
           )}
-          hiddenBarKeys={hiddenBarKeysByCol[col]}
+          hiddenBarKeys={hiddenBarKeysByCol[col] ?? new Set()}
           isLast={col === week.length - 1}
           autoFit={autoFit}
           contentRef={col === 0 ? contentRef : undefined}
@@ -608,7 +609,7 @@ function EventCalendarMonthWeek({
                         start: dragGhost.proposedStart,
                         end: dragGhost.proposedEnd,
                       },
-                      day: week[ghostPos.col] ?? week[0],
+                      day: week[ghostPos.col] ?? firstWeekDay,
                       isStart: dragGhost.isStart,
                       isEnd: dragGhost.isEnd,
                       continuesBefore: !dragGhost.isStart,

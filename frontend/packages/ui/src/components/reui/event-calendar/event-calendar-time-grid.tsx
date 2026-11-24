@@ -454,7 +454,8 @@ function useEventCalendarAllDayBars(days: Date[]): {
           lanes[lane] ??= new Array(days.length).fill(false)
           let free = true
           for (let c = bar.colStart; c <= bar.colEnd; c++) {
-            if (lanes[lane][c]) {
+            const laneRow = lanes[lane]
+            if (laneRow?.[c]) {
               free = false
               break
             }
@@ -462,7 +463,9 @@ function useEventCalendarAllDayBars(days: Date[]): {
           if (free) break
           lane++
         }
-        for (let c = bar.colStart; c <= bar.colEnd; c++) lanes[lane][c] = true
+        const laneRow = lanes[lane] ?? new Array(days.length).fill(false)
+        lanes[lane] = laneRow
+        for (let c = bar.colStart; c <= bar.colEnd; c++) laneRow[c] = true
         bar.lane = lane
       }
       return {
@@ -492,14 +495,13 @@ function useEventCalendarAllDayBars(days: Date[]): {
           // memoized index (rebuilt exactly when events change), so identity
           // also subsumes the end-time check it replaces. The positional
           // fields stay because they are recomputed on every read.
-          return (
+          return o !== undefined &&
             s.occurrence === o.occurrence &&
             s.colStart === o.colStart &&
             s.colSpan === o.colSpan &&
             s.lane === o.lane &&
             s.isStart === o.isStart &&
             s.isEnd === o.isEnd
-          )
         }),
     }
   )
@@ -554,6 +556,8 @@ function EventCalendarAllDayBars({
         }
       })
       if (colStart === -1) return null
+      const startDay = days[colStart] ?? days[0] ?? new Date()
+      const endDay = days[colEnd] ?? days[0] ?? new Date()
       return {
         kind: drag.kind,
         valid: drag.valid,
@@ -562,8 +566,8 @@ function EventCalendarAllDayBars({
         proposedEnd: drag.proposedEnd,
         colStart,
         colSpan: colEnd - colStart + 1,
-        isStart: zonedStartOfDay(days[colStart], tz).getTime() <= startMs,
-        isEnd: zonedStartOfDay(days[colEnd], tz).getTime() >= lastMs,
+        isStart: zonedStartOfDay(startDay, tz).getTime() <= startMs,
+        isEnd: zonedStartOfDay(endDay, tz).getTime() >= lastMs,
         color: drag.occurrence.event.color,
       }
     },
@@ -671,7 +675,7 @@ function EventCalendarAllDayBars({
                         start: dragGhost.proposedStart,
                         end: dragGhost.proposedEnd,
                       },
-                      day: days[dragGhost.colStart] ?? days[0],
+                      day: days[dragGhost.colStart] ?? days[0] ?? new Date(),
                       isStart: dragGhost.isStart,
                       isEnd: dragGhost.isEnd,
                       continuesBefore: !dragGhost.isStart,

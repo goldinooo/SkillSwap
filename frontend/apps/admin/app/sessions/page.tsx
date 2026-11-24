@@ -1,0 +1,6 @@
+import { AdminPageLayout } from "@/components/admin-page-layout"
+import { AdminResourcePage } from "@/components/admin-resource-page"
+
+export default function SessionsPage() {
+  return <AdminPageLayout><AdminResourcePage eyebrow="Security" title="Authentication sessions" description="Monitor login sessions separately from teaching and learning meetings, including device, browser, expiry, and revocation state." stats={[{ label: "Active sessions", detail: "Requires auth session store" }, { label: "Expired sessions", detail: "Requires auth session store" }, { label: "Sessions today", detail: "Requires login events" }, { label: "Revocations", detail: "Requires session controls" }]} columns={[{ label: "Session", key: "session" }, { label: "User", key: "user" }, { label: "Device / browser", key: "device" }, { label: "Login time", key: "login" }, { label: "Expires", key: "expires" }, { label: "Status", key: "status" }]} filters={[{ label: "Session status", value: "all", options: [{ label: "All sessions", value: "all" }, { label: "Active", value: "active" }, { label: "Expired", value: "expired" }, { label: "Revoked", value: "revoked" }] }]} emptyTitle="No authentication sessions available" emptyDescription="Session records and revocation controls will appear when the authentication service is connected." /></AdminPageLayout>
+}
