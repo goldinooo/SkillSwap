@@ -12,10 +12,8 @@ import {
   SidebarRail,
 } from "@workspace/ui/components/sidebar"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
-import * as React from "react"
 import AppLogo from "./app-logo"
 import { NavUser } from "./app-sidebar-user"
-
 import { useCurrentPage } from "@/hooks/use-current-page"
 import {
   dashboardNavigation,

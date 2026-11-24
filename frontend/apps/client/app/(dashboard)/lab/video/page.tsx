@@ -1,3 +1,3 @@
 export default function Page() {
-  return <div>Video Page</div>
+  return <div className="grid h-full w-full place-items-center">Video Page</div>
 }
