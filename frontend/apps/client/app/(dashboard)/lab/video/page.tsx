@@ -1,3 +1,5 @@
+import VideoCall from "./_components/video-call"
+
 export default function Page() {
-  return <div className="grid h-full w-full place-items-center">Video Page</div>
+  return <VideoCall />
 }
