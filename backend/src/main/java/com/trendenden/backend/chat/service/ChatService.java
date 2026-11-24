@@ -7,6 +7,8 @@ import com.trendenden.backend.chat.dto.SendMessageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import com.trendenden.backend.chat.entity.Message;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import java.util.UUID;
 import java.util.Set;
 
@@ -25,7 +27,7 @@ public class ChatService{
     }
 
     public MessageResponse send(UUID senderId, SendMessageRequest request){
-              ChatSession session = requireParticipant(senderId, request.sessionId());
+        ChatSession session = requireParticipant(senderId, request.sessionId());
 
 
         if(!CHAT_OPEN.contains(session.status())){
@@ -37,11 +39,22 @@ public class ChatService{
         Message saved = messageRepository.save(message);
         MessageResponse response = MessageResponse.from(saved);
 
-        UUID recipient = senderId.equals(session.teacherId()) ? session.learnerId() : session.teacherId();        messaging.convertAndSendToUser(recipient.toString(), "/queue/messages", response);
+        UUID recipient = senderId.equals(session.teacherId()) ? session.learnerId() : session.teacherId();
+        messaging.convertAndSendToUser(recipient.toString(), "/queue/messages", response);
         messaging.convertAndSendToUser(senderId.toString(), "/queue/messages", response);
        
         return response;
     }
+
+
+
+    public Page<MessageResponse> history(UUID userId, Long sessionId, int page, int size){
+        requireParticipant(userId, sessionId);
+
+        int safeSize = Math.min(size, 50);
+        return messageRepository.findBySessionIdOrderByCreatedAtDesc(sessionId, PageRequest.of(page, safeSize)).map(MessageResponse::from);
+    }
+
 
     private ChatSession requireParticipant(UUID userId , Long sessionId){
         ChatSession session = sessionLookup.find(sessionId).orElseThrow(() -> new AccessDeniedException("Not allowed"));

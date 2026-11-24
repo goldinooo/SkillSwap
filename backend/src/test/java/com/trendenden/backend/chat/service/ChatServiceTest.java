@@ -25,6 +25,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import java.util.List;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
    
 class ChatServiceTest {
 
@@ -107,5 +114,40 @@ class ChatServiceTest {
             verify(messaging, never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
     }
 
+    @Test
+    void learnerCanReadHistory() {
+        when(sessionLookup.find(31L))
+                .thenReturn(Optional.of(new ChatSession(31L, teacher, learner, "CONFIRMED")));
+        Message m = new Message(31L, teacher, "salam");
+        when(messageRepository.findBySessionIdOrderByCreatedAtDesc(eq(31L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(m)));
 
+        Page<MessageResponse> page = chatService.history(learner, 31L, 0, 20);
+
+        assertEquals(1, page.getContent().size());
+        assertEquals("salam", page.getContent().get(0).content());
+    }
+
+    @Test
+    void strangerCannotReadHistory() {
+        when(sessionLookup.find(31L))
+                .thenReturn(Optional.of(new ChatSession(31L, teacher, learner, "CONFIRMED")));
+
+        assertThrows(AccessDeniedException.class,
+                () -> chatService.history(stranger, 31L, 0, 20));
+
+        verify(messageRepository, never()).findBySessionIdOrderByCreatedAtDesc(anyLong(), any(Pageable.class));
+    }
+
+    @Test
+    void historySizeIsCappedAt50() {
+        when(sessionLookup.find(31L))
+                .thenReturn(Optional.of(new ChatSession(31L, teacher, learner, "CONFIRMED")));
+        when(messageRepository.findBySessionIdOrderByCreatedAtDesc(eq(31L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        chatService.history(teacher, 31L, 0, 1000);
+
+        verify(messageRepository).findBySessionIdOrderByCreatedAtDesc(31L, PageRequest.of(0, 50));
+    }
 }
