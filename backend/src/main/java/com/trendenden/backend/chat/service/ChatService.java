@@ -25,14 +25,8 @@ public class ChatService{
     }
 
     public MessageResponse send(UUID senderId, SendMessageRequest request){
-        ChatSession session = sessionLookup.find(request.sessionId())
-        .orElseThrow(() -> new AccessDeniedException("Not allowed"));
+              ChatSession session = requireParticipant(senderId, request.sessionId());
 
-        boolean isTeacher = senderId.equals(session.teacherId());
-        boolean isLearner = senderId.equals(session.learnerId());
-            if(!isLearner && !isTeacher){
-                throw new AccessDeniedException("Not allowed");
-            }
 
         if(!CHAT_OPEN.contains(session.status())){
             throw new IllegalStateException("Chat is closed for this session !");
@@ -43,12 +37,22 @@ public class ChatService{
         Message saved = messageRepository.save(message);
         MessageResponse response = MessageResponse.from(saved);
 
-        UUID recipient = isTeacher ? session.learnerId() : session.teacherId();
-        messaging.convertAndSendToUser(recipient.toString(), "/queue/messages", response);
+        UUID recipient = senderId.equals(session.teacherId()) ? session.learnerId() : session.teacherId();        messaging.convertAndSendToUser(recipient.toString(), "/queue/messages", response);
         messaging.convertAndSendToUser(senderId.toString(), "/queue/messages", response);
        
         return response;
     }
 
+    private ChatSession requireParticipant(UUID userId , Long sessionId){
+        ChatSession session = sessionLookup.find(sessionId).orElseThrow(() -> new AccessDeniedException("Not allowed"));
+
+        boolean isTeacher = userId.equals(session.teacherId());
+        boolean isLearner = userId.equals(session.learnerId());
+        if(!isTeacher && !isLearner){
+            throw new AccessDeniedException("Not allowed");
+        }
+        
+        return session;
+    }
 
 }
