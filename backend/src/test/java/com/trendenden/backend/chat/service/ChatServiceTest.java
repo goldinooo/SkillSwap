@@ -1,9 +1,10 @@
 package com.trendenden.backend.chat.service;
 
-import com.trendenden.backend.chat.dto.MessageResponse;
-import com.trendenden.backend.chat.dto.SendMessageRequest;
-import com.trendenden.backend.chat.entity.Message;
+import com.trendenden.backend.notification.service.NotificationService;
 import com.trendenden.backend.chat.repository.MessageRepository;
+import com.trendenden.backend.chat.dto.SendMessageRequest;
+import com.trendenden.backend.chat.dto.MessageResponse;
+import com.trendenden.backend.chat.entity.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.Optional;
@@ -25,20 +26,21 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+import static org.mockito.ArgumentMatchers.anyLong;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import java.util.List;
-import static org.mockito.ArgumentMatchers.anyLong;
+import org.springframework.data.domain.PageImpl;
 import static org.mockito.ArgumentMatchers.eq;
+import org.springframework.data.domain.Page;
+import java.util.List;
    
 class ChatServiceTest {
 
+    private NotificationService notificationService;
     private MessageRepository messageRepository;
+    private SimpMessagingTemplate messaging;
     private SessionLookup sessionLookup;
     private ChatService chatService;
-    private SimpMessagingTemplate messaging;
 
     private final UUID teacher = UUID.randomUUID();
     private final UUID learner = UUID.randomUUID();
@@ -49,7 +51,8 @@ class ChatServiceTest {
         messageRepository = mock(MessageRepository.class);
         sessionLookup = mock(SessionLookup.class);
         messaging = mock(SimpMessagingTemplate.class);
-        chatService = new ChatService(messageRepository, sessionLookup, messaging);
+        notificationService = mock(NotificationService.class);
+        chatService = new ChatService(messageRepository, sessionLookup, messaging, notificationService);
     }
 
     @Test
@@ -70,6 +73,7 @@ class ChatServiceTest {
 
         verify(messaging).convertAndSendToUser(learner.toString(), "/queue/messages", response);
         verify(messaging).convertAndSendToUser(teacher.toString(), "/queue/messages", response);
+        verify(notificationService).create(eq(learner), eq("NEW_MESSAGE"), anyString());
     }
 
     @Test
@@ -84,6 +88,7 @@ class ChatServiceTest {
         // nothing saved
         verify(messageRepository, never()).save(any(Message.class));
         verify(messaging, never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        verify(notificationService, never()).create(any(), anyString(), anyString());
     }
 
     @Test
@@ -98,6 +103,7 @@ class ChatServiceTest {
 
         verify(messageRepository, never()).save(any(Message.class));
         verify(messaging, never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        verify(notificationService, never()).create(any(), anyString(), anyString());
     }
 
     @Test
@@ -111,7 +117,8 @@ class ChatServiceTest {
                 () -> chatService.send(teacher, new SendMessageRequest(31L, "salam")));
 
         verify(messageRepository, never()).save(any(Message.class));
-            verify(messaging, never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        verify(messaging, never()).convertAndSendToUser(anyString(), anyString(), any(Object.class));
+        verify(notificationService, never()).create(any(), anyString(), anyString());
     }
 
     @Test

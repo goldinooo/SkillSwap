@@ -1,14 +1,15 @@
 package com.trendenden.backend.chat.service;
 
+import com.trendenden.backend.notification.service.NotificationService;
 import com.trendenden.backend.chat.repository.MessageRepository;
-import org.springframework.stereotype.Service;
-import com.trendenden.backend.chat.dto.MessageResponse;
-import com.trendenden.backend.chat.dto.SendMessageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import com.trendenden.backend.chat.entity.Message;
-import org.springframework.data.domain.Page;
+import com.trendenden.backend.chat.dto.SendMessageRequest;
+import com.trendenden.backend.chat.dto.MessageResponse;
 import org.springframework.data.domain.PageRequest;
+import com.trendenden.backend.chat.entity.Message;
+import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
 import java.util.UUID;
 import java.util.Set;
 
@@ -20,10 +21,14 @@ public class ChatService{
     private final SimpMessagingTemplate messaging;
     private static final Set<String> CHAT_OPEN = Set.of("REQUESTED", "CONFIRMED");
 
-    public ChatService(MessageRepository messageRepository, SessionLookup sessionLookup, SimpMessagingTemplate messaging){
+    private final NotificationService notificationService;
+
+    public ChatService(MessageRepository messageRepository, SessionLookup sessionLookup,
+                       SimpMessagingTemplate messaging, NotificationService notificationService) {
         this.messageRepository = messageRepository;
         this.sessionLookup = sessionLookup;
         this.messaging = messaging;
+        this.notificationService = notificationService;
     }
 
     public MessageResponse send(UUID senderId, SendMessageRequest request){
@@ -43,6 +48,8 @@ public class ChatService{
         messaging.convertAndSendToUser(recipient.toString(), "/queue/messages", response);
         messaging.convertAndSendToUser(senderId.toString(), "/queue/messages", response);
        
+        String payload = "{\"sessionId\":" + request.sessionId() + ",\"from\":\"" + senderId + "\"}";
+        notificationService.create(recipient, "NEW_MESSAGE", payload);
         return response;
     }
 
